@@ -204,9 +204,12 @@ export default function TransactionHistoryPage({ user }) {
                   </div>
                 </div>
                 
-                {/* Filter */}
+                {/* Filter - full width on mobile with small side paddings, inline on desktop */}
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full sm:w-40 bg-panel border-white/10 text-white ml-12 sm:ml-0" style={{maxWidth: 'calc(100% - 48px)'}}>
+                  <SelectTrigger
+                    data-testid="tx-type-filter"
+                    className="w-full sm:w-40 bg-panel border-white/10 text-white px-2 sm:px-3"
+                  >
                     <Filter className="w-4 h-4 mr-2 flex-shrink-0" />
                     <SelectValue placeholder={t('filterLabel')} />
                   </SelectTrigger>

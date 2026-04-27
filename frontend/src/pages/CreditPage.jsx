@@ -192,19 +192,6 @@ export default function CreditPage({ user, refreshBalance, updateBalance }) {
             />
           </div>
           
-          {/* Take Loan button - below subtitle on mobile */}
-          <div className="flex justify-start sm:pl-0">
-            <Button
-              data-testid="apply-credit-btn"
-              onClick={() => setShowApplyModal(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-              disabled={businesses.length === 0}
-            >
-              <Banknote className="w-4 h-4 mr-1.5" />
-              {t('takeCreditBtn')}
-            </Button>
-          </div>
-
           {/* Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-void border-amber-500/30">
@@ -247,7 +234,16 @@ export default function CreditPage({ user, refreshBalance, updateBalance }) {
               <Card className="bg-void border-white/10">
                 <CardContent className="p-8 text-center">
                   <Landmark className="w-12 h-12 text-text-muted mx-auto mb-3" />
-                  <p className="text-text-muted">{t('noCreditsMsg')}</p>
+                  <p className="text-text-muted mb-5">{t('noCreditsMsg')}</p>
+                  <Button
+                    data-testid="apply-credit-btn"
+                    onClick={() => setShowApplyModal(true)}
+                    className="bg-amber-500 hover:bg-amber-600 text-black"
+                    disabled={businesses.length === 0}
+                  >
+                    <Banknote className="w-4 h-4 mr-1.5" />
+                    {t('takeCreditBtn')}
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -323,6 +319,18 @@ export default function CreditPage({ user, refreshBalance, updateBalance }) {
                     </CardContent>
                   </Card>
                 ))}
+                {/* Take Loan button - below last active loan */}
+                <div className="flex justify-start pt-2">
+                  <Button
+                    data-testid="apply-credit-btn"
+                    onClick={() => setShowApplyModal(true)}
+                    className="bg-amber-500 hover:bg-amber-600 text-black"
+                    disabled={businesses.length === 0}
+                  >
+                    <Banknote className="w-4 h-4 mr-1.5" />
+                    {t('takeCreditBtn')}
+                  </Button>
+                </div>
               </div>
             )}
           </div>

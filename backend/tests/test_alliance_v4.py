@@ -16,7 +16,7 @@ import requests
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ton-urban-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ton-builder.preview.emergentagent.com')
 
 # Test credentials
 ADMIN_EMAIL = "sanyanazarov212@gmail.com"

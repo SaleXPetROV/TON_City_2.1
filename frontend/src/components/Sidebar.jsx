@@ -136,7 +136,12 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
                   ${logoDisabled ? 'opacity-30 cursor-not-allowed pointer-events-none' : 'cursor-pointer hover:bg-white/5'}
                   ${isLogoHighlighted ? 'ring-2 ring-cyber-cyan' : ''}`}
                 onClick={() => { if (!logoDisabled) navigate('/'); }}
+                onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !logoDisabled) { e.preventDefault(); navigate('/'); } }}
                 data-testid="sidebar-logo"
+                role="link"
+                tabIndex={logoDisabled ? -1 : 0}
+                aria-label="TON City — home"
+                title="TON City"
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyber-cyan to-neon-purple flex items-center justify-center shadow-lg shadow-cyber-cyan/20 flex-shrink-0">
                   <Building2 className="w-5 h-5 text-black" />
@@ -212,6 +217,11 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
             <div 
               className="p-2 bg-cyber-cyan/10 rounded-xl text-center cursor-pointer hover:bg-cyber-cyan/20 transition-colors mb-2"
               onClick={() => setShowDepositModal(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDepositModal(true); } }}
+              role="button"
+              tabIndex={0}
+              aria-label={`${t('sidebarBalance')}: ${balanceTon.toFixed(1)} TON. ${t('sidebarDeposit')}`}
+              title={`${t('sidebarBalance')}: ${balanceTon.toFixed(1)} TON`}
             >
               <Wallet className="w-5 h-5 text-cyber-cyan mx-auto" />
               <div className="text-xs text-cyber-cyan mt-1 font-bold">{balanceTon.toFixed(1)}</div>
@@ -310,8 +320,16 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
     return (
       <div
         onClick={handleClick}
+        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !isDisabledByTutorial) { e.preventDefault(); handleClick(); } }}
         data-testid={testId}
+        role="link"
+        tabIndex={isDisabledByTutorial ? -1 : 0}
+        aria-label={typeof label === 'string' ? label : undefined}
+        aria-current={isActive ? 'page' : undefined}
+        aria-disabled={isDisabledByTutorial || undefined}
+        title={typeof label === 'string' ? label : undefined}
         className={`relative flex items-center gap-3 p-3 rounded-xl transition-all
+          outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan/60
           ${isDisabledByTutorial ? 'opacity-30 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
           ${isActive 
             ? isAdmin

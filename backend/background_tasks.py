@@ -776,7 +776,7 @@ async def economic_tick():
                     tg_bot = get_telegram_bot()
                     if tg_bot:
                         keyboard = {"inline_keyboard": [[
-                            {"text": "🎮 Открыть игру", "url": "https://ton-urban-2.preview.emergentagent.com/trading"}
+                            {"text": "🎮 Открыть игру", "url": "https://ton-builder.preview.emergentagent.com/trading"}
                         ]]}
                         await tg_bot.send_message(chat_id, "\n".join(lines), reply_markup=keyboard)
                         for n in notifs:

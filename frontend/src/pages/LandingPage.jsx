@@ -334,25 +334,25 @@ export default function LandingPage({ user, setUser }) {
                 className="mb-16 sm:mb-20"
               >
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto">
-                  <button onClick={() => navigate('/calculator')} className="glass-panel rounded-xl p-4 border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all text-left group">
+                  <button onClick={() => navigate('/calculator')} className="glass-panel rounded-xl p-4 border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all text-left group" data-testid="landing-card-calculator">
                     <Calculator className="w-5 h-5 text-cyan-400 mb-2 group-hover:scale-110 transition-transform" />
-                    <div className="text-sm font-bold text-white">Калькулятор</div>
-                    <div className="text-[10px] text-text-muted">21 бизнес × 10 ур.</div>
+                    <div className="text-sm font-bold text-white">{t('calculatorCard')}</div>
+                    <div className="text-[10px] text-text-muted">{t('calculatorDesc')}</div>
                   </button>
-                  <button onClick={() => navigate('/trading')} className="glass-panel rounded-xl p-4 border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-left group">
+                  <button onClick={() => navigate('/trading')} className="glass-panel rounded-xl p-4 border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-left group" data-testid="landing-card-p2p">
                     <TrendingUp className="w-5 h-5 text-green-400 mb-2 group-hover:scale-110 transition-transform" />
-                    <div className="text-sm font-bold text-white">P2P Торговля</div>
-                    <div className="text-[10px] text-text-muted">16 типов ресурсов</div>
+                    <div className="text-sm font-bold text-white">{t('p2pTradingCard')}</div>
+                    <div className="text-[10px] text-text-muted">{t('p2pTradingDesc')}</div>
                   </button>
-                  <button onClick={() => navigate('/my-businesses')} className="glass-panel rounded-xl p-4 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-all text-left group">
+                  <button onClick={() => navigate('/my-businesses')} className="glass-panel rounded-xl p-4 border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-all text-left group" data-testid="landing-card-mybusinesses">
                     <Building2 className="w-5 h-5 text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
-                    <div className="text-sm font-bold text-white">Мои бизнесы</div>
-                    <div className="text-[10px] text-text-muted">Управление доходом</div>
+                    <div className="text-sm font-bold text-white">{t('myBusinessesCard')}</div>
+                    <div className="text-[10px] text-text-muted">{t('myBusinessesDesc')}</div>
                   </button>
-                  <button onClick={() => navigate('/leaderboard')} className="glass-panel rounded-xl p-4 border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all text-left group">
+                  <button onClick={() => navigate('/leaderboard')} className="glass-panel rounded-xl p-4 border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all text-left group" data-testid="landing-card-leaderboard">
                     <Trophy className="w-5 h-5 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
-                    <div className="text-sm font-bold text-white">Рейтинг</div>
-                    <div className="text-[10px] text-text-muted">Топ игроков</div>
+                    <div className="text-sm font-bold text-white">{t('leaderboardCard')}</div>
+                    <div className="text-[10px] text-text-muted">{t('leaderboardDesc')}</div>
                   </button>
                 </div>
               </motion.div>

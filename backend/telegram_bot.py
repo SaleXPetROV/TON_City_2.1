@@ -228,7 +228,7 @@ Welcome back, <b>{user.get('username', first_name)}!</b>
                         {"text": "🏢 Бизнесы" if lang == "ru" else "🏢 Businesses", "callback_data": "businesses"}
                     ],
                     [
-                        {"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-urban-2.preview.emergentagent.com"}
+                        {"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-builder.preview.emergentagent.com"}
                     ],
                     [
                         {"text": "⚙️ Настройки" if lang == "ru" else "⚙️ Settings", "callback_data": "settings"},
@@ -259,7 +259,7 @@ Link your Telegram to your TON City account to access all features."""
             keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-urban-2.preview.emergentagent.com"}
+                        {"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-builder.preview.emergentagent.com"}
                     ],
                     [
                         {"text": "🔗 Как привязать" if lang == "ru" else "🔗 How to Link", "callback_data": "how_to_link"}
@@ -448,7 +448,7 @@ Link your Telegram in website settings for full access."""
                     {"text": "💰 Баланс" if lang == "ru" else "💰 Balance", "callback_data": "status"},
                     {"text": "🏢 Бизнесы" if lang == "ru" else "🏢 Businesses", "callback_data": "businesses"}
                 ],
-                [{"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-urban-2.preview.emergentagent.com"}],
+                [{"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-builder.preview.emergentagent.com"}],
                 [{"text": "◀️ Главное меню" if lang == "ru" else "◀️ Main Menu", "callback_data": "back_to_menu"}]
             ]
         }
@@ -666,7 +666,7 @@ After linking your wallet, you will be able to deposit funds."""
             
             keyboard = {
                 "inline_keyboard": [
-                    [{"text": "🎮 Открыть настройки" if lang == "ru" else "🎮 Open Settings", "url": "https://ton-urban-2.preview.emergentagent.com/settings?tab=wallet"}],
+                    [{"text": "🎮 Открыть настройки" if lang == "ru" else "🎮 Open Settings", "url": "https://ton-builder.preview.emergentagent.com/settings?tab=wallet"}],
                     [{"text": "◀️ Назад" if lang == "ru" else "◀️ Back", "callback_data": "back_to_menu"}]
                 ]
             }
@@ -1018,7 +1018,7 @@ After linking you will receive notifications about:
         
         keyboard = {
             "inline_keyboard": [
-                [{"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-urban-2.preview.emergentagent.com"}],
+                [{"text": "🎮 Открыть игру" if lang == "ru" else "🎮 Open Game", "url": "https://ton-builder.preview.emergentagent.com"}],
                 [{"text": "◀️ Назад" if lang == "ru" else "◀️ Back", "callback_data": "back_to_menu"}]
             ]
         }
