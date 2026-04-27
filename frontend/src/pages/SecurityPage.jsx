@@ -428,7 +428,7 @@ export default function SecurityPage({ user }) {
               </Button>
             </div>
 
-            {securityStatus?.passkeys?.length > 0 ? (
+            {securityStatus?.passkeys?.length > 0 && (
               <div className="space-y-3">
                 {securityStatus.passkeys.map((passkey) => (
                   <div
@@ -456,11 +456,6 @@ export default function SecurityPage({ user }) {
                     </Button>
                   </div>
                 ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-text-muted">
-                <Fingerprint className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>{t('noRegisteredDevices')}</p>
               </div>
             )}
           </div>
