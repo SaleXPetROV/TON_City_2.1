@@ -752,7 +752,7 @@ export default function SettingsPage({ user: propUser, setUser: setAppUser, onLo
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6 sm:space-y-8"
         >
-          <div className="text-center mb-8 sm:mb-12">
+          <div className="text-center mb-8 sm:mb-12 hidden">
             <h1 className="font-unbounded text-2xl sm:text-3xl font-bold text-white mb-2 uppercase tracking-tight">
               {t('settingsTitle') || 'Settings'}
             </h1>

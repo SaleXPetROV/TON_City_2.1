@@ -1120,14 +1120,16 @@ async def process_instant_withdrawal_async(withdrawal_id: str):
     """Background task to process instant withdrawal"""
     try:
         await asyncio.sleep(2)  # Small delay
-        
+
+        from mnemonic_crypto import decrypt_mnemonic
+
         # Get withdrawal wallet
         withdrawal_wallet = await db.admin_settings.find_one({"type": "withdrawal_wallet"}, {"_id": 0})
-        seed = withdrawal_wallet.get("mnemonic") if withdrawal_wallet else None
-        
+        seed = decrypt_mnemonic(withdrawal_wallet.get("mnemonic")) if withdrawal_wallet else None
+
         if not seed:
             sender_wallet = await db.admin_settings.find_one({"type": "sender_wallet"}, {"_id": 0})
-            seed = sender_wallet.get("mnemonic") if sender_wallet else None
+            seed = decrypt_mnemonic(sender_wallet.get("mnemonic")) if sender_wallet else None
         
         if not seed:
             seed = os.getenv("TON_WALLET_MNEMONIC")
@@ -6233,17 +6235,32 @@ async def admin_unblock_user_withdrawal(user_id: str, admin: User = Depends(get_
 
 @admin_router.get("/multi-accounts")
 async def admin_detect_multi_accounts(admin: User = Depends(get_admin_user)):
-    """Detect multi-accounting using FingerprintJS visitor_id + IPQualityScore.
-
-    New implementation (v2) — replaces the previous IP/device-name grouping.
-    Data source: `fingerprints` collection populated by antifraud.record_event
-    on register / login / withdraw. Groups:
-      • visitor_groups — same FingerprintJS visitor_id across different accounts
-      • ip_groups      — same IP across different accounts, with VPN/Tor flags
-      • high_risk_events — individual events flagged by IPQS
-    """
+    """Detect multi-accounting using FingerprintJS visitor_id + Cloudflare Turnstile."""
     from antifraud import build_admin_report
     return await build_admin_report(db, limit=100)
+
+
+class MultiAccountCleanup(BaseModel):
+    mode: str = "older_than"   # older_than | failed_only | by_ids | all
+    older_than_days: Optional[int] = 30
+    event_ids: Optional[List[str]] = None
+    failed_only: bool = False
+
+
+@admin_router.post("/multi-accounts/cleanup")
+async def admin_multi_accounts_cleanup(
+    data: MultiAccountCleanup,
+    admin: User = Depends(get_admin_user)
+):
+    """Delete anti-fraud events. Supports per-row, bulk failed, older_than, all."""
+    from antifraud import cleanup_events
+    return await cleanup_events(
+        db,
+        mode=data.mode,
+        older_than_days=data.older_than_days,
+        event_ids=data.event_ids,
+        failed_only=data.failed_only,
+    )
 
 
 @admin_router.get("/transactions")
@@ -6318,13 +6335,14 @@ async def admin_approve_withdrawal(tx_id: str, admin: User = Depends(get_current
         raise HTTPException(status_code=400, detail="Адрес получателя не найден")
 
     # 3. Получить мнемонику из кошелька для вывода (withdrawal_wallet)
+    from mnemonic_crypto import decrypt_mnemonic
     withdrawal_wallet = await db.admin_settings.find_one({"type": "withdrawal_wallet"}, {"_id": 0})
-    seed = withdrawal_wallet.get("mnemonic") if withdrawal_wallet else None
-    
+    seed = decrypt_mnemonic(withdrawal_wallet.get("mnemonic")) if withdrawal_wallet else None
+
     # Fallback to sender_wallet if withdrawal_wallet not configured
     if not seed:
         sender_wallet = await db.admin_settings.find_one({"type": "sender_wallet"}, {"_id": 0})
-        seed = sender_wallet.get("mnemonic") if sender_wallet else None
+        seed = decrypt_mnemonic(sender_wallet.get("mnemonic")) if sender_wallet else None
     
     # Fallback to .env if not in admin settings
     if not seed:
@@ -6538,11 +6556,12 @@ async def add_admin_wallet(data: AdminWallet, admin: User = Depends(get_current_
         raise HTTPException(status_code=400, detail=f"Общий процент превышает 100%. Доступно: {100 - current_total}%")
     
     wallet_id = str(uuid.uuid4())
+    from mnemonic_crypto import encrypt_mnemonic
     wallet = {
         "id": wallet_id,
         "address": data.address,
         "percentage": data.percentage,
-        "mnemonic": data.mnemonic,
+        "mnemonic": encrypt_mnemonic(data.mnemonic),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.admin_wallets.insert_one(wallet)
@@ -8163,11 +8182,12 @@ async def set_sender_wallet_config(data: SenderWalletConfig, admin: User = Depen
         except Exception as e:
             logger.warning(f"Could not derive address from mnemonic: {e}")
     
+    from mnemonic_crypto import encrypt_mnemonic
     await db.admin_settings.update_one(
         {"type": "sender_wallet"},
         {"$set": {
             "type": "sender_wallet",
-            "mnemonic": data.mnemonic.strip(),
+            "mnemonic": encrypt_mnemonic(data.mnemonic.strip()),
             "address": address,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }},
@@ -8372,11 +8392,12 @@ async def set_withdrawal_wallet_config(data: dict, admin: User = Depends(get_adm
     except Exception as e:
         logger.warning(f"Could not derive address from mnemonic: {e}")
     
+    from mnemonic_crypto import encrypt_mnemonic
     await db.admin_settings.update_one(
         {"type": "withdrawal_wallet"},
         {"$set": {
             "type": "withdrawal_wallet",
-            "mnemonic": mnemonic,
+            "mnemonic": encrypt_mnemonic(mnemonic),
             "address": address,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }},
@@ -9559,6 +9580,27 @@ async def startup_event():
         logger.info("✅ TON Payment Monitor started")
     except Exception as e:
         logger.error(f"❌ Failed to start payment monitor: {e}")
+
+    # Anti-fraud: TTL index на fingerprints (auto-delete после 30 дней)
+    try:
+        from antifraud import ensure_ttl_index
+        await ensure_ttl_index(db, ttl_days=30)
+    except Exception as e:
+        logger.error(f"❌ Failed to create antifraud TTL index: {e}")
+
+    # Mnemonic encryption: migrate legacy plaintext → Fernet-encrypted
+    try:
+        from mnemonic_crypto import migrate_plaintext_to_encrypted
+        stats = await migrate_plaintext_to_encrypted(db)
+        if stats.get("status") == "done":
+            logger.info(
+                "✅ Mnemonic encryption migration: %s admin_settings, %s admin_wallets",
+                stats.get("admin_settings", 0), stats.get("admin_wallets", 0)
+            )
+        elif stats.get("status") == "skipped":
+            logger.info("ℹ Mnemonic encryption skipped: %s", stats.get("reason"))
+    except Exception as e:
+        logger.error(f"❌ Mnemonic encryption migration failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

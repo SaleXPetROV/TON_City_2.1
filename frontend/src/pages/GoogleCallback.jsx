@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { useTranslation } from '@/context/LanguageContext';
+import { useTranslation } from '@/lib/translations';
+import { useLanguage } from '@/context/LanguageContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 const API = `${BACKEND_URL}/api`;
 
 export default function GoogleCallback({ setUser, onAuthSuccess }) {
-  const { t } = useTranslation();
+  const { lang } = useLanguage();
+  const { t } = useTranslation(lang);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState(null);

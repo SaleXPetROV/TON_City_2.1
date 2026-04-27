@@ -60,6 +60,33 @@ export default function AdminPage({ user }) {
   // Credit admin states
   const [credits, setCredits] = useState([]);
   const [multiAccounts, setMultiAccounts] = useState(null);
+  const [maCleanupBusy, setMaCleanupBusy] = useState(false);
+
+  const reloadMultiAccounts = async () => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('ton_city_token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const r = await axios.get(`${API}/admin/multi-accounts`, { headers });
+      setMultiAccounts(r.data);
+    } catch (e) { /* silent */ }
+  };
+
+  const cleanupMultiAccounts = async (payload, confirmMsg) => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setMaCleanupBusy(true);
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('ton_city_token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const r = await axios.post(`${API}/admin/multi-accounts/cleanup`, payload, { headers });
+      toast.success(`Удалено: ${r.data.deleted}`);
+      await reloadMultiAccounts();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || e.message || 'Ошибка очистки');
+    } finally {
+      setMaCleanupBusy(false);
+    }
+  };
+
   const [creditSettings, setCreditSettings] = useState({ government_interest_rate: 0.15 });
   const [govRate, setGovRate] = useState('15');
   
@@ -1859,7 +1886,8 @@ export default function AdminPage({ user }) {
                       Обнаружение мульти-аккаунтов
                     </h3>
                     <p className="text-xs text-text-muted mt-1">
-                      FingerprintJS (локальный отпечаток устройства) + Cloudflare Turnstile (анти-бот)
+                      FingerprintJS (локальный отпечаток устройства) + Cloudflare Turnstile (анти-бот).
+                      Авто-очистка событий старше <span className="text-cyber-cyan">30 дней</span> (MongoDB TTL).
                     </p>
                   </div>
                   {multiAccounts && (
@@ -1882,6 +1910,63 @@ export default function AdminPage({ user }) {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Cleanup controls */}
+                <div className="flex items-center gap-2 flex-wrap mb-5 p-3 bg-white/[0.03] border border-white/10 rounded-lg">
+                  <span className="text-xs text-text-muted uppercase tracking-wide">Очистка:</span>
+                  <Button
+                    data-testid="ma-cleanup-old"
+                    variant="outline"
+                    size="sm"
+                    disabled={maCleanupBusy}
+                    onClick={() => cleanupMultiAccounts(
+                      { mode: 'older_than', older_than_days: 30 },
+                      'Удалить все события старше 30 дней?'
+                    )}
+                    className="border-white/10 text-white/80 hover:bg-white/5 text-xs"
+                  >
+                    Старше 30 дней
+                  </Button>
+                  <Button
+                    data-testid="ma-cleanup-7d"
+                    variant="outline"
+                    size="sm"
+                    disabled={maCleanupBusy}
+                    onClick={() => cleanupMultiAccounts(
+                      { mode: 'older_than', older_than_days: 7 },
+                      'Удалить все события старше 7 дней?'
+                    )}
+                    className="border-white/10 text-white/80 hover:bg-white/5 text-xs"
+                  >
+                    Старше 7 дней
+                  </Button>
+                  <Button
+                    data-testid="ma-cleanup-failed"
+                    variant="outline"
+                    size="sm"
+                    disabled={maCleanupBusy}
+                    onClick={() => cleanupMultiAccounts(
+                      { mode: 'failed_only' },
+                      'Удалить все провалы Turnstile?'
+                    )}
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs"
+                  >
+                    Только провалы
+                  </Button>
+                  <Button
+                    data-testid="ma-cleanup-all"
+                    variant="outline"
+                    size="sm"
+                    disabled={maCleanupBusy}
+                    onClick={() => cleanupMultiAccounts(
+                      { mode: 'all' },
+                      '⚠️ Удалить ВСЕ события? Это сбросит все группы.'
+                    )}
+                    className="border-red-500/50 text-red-400 hover:bg-red-500/10 text-xs"
+                  >
+                    Всё
+                  </Button>
                 </div>
 
                 {multiAccounts ? (
@@ -1961,7 +2046,7 @@ export default function AdminPage({ user }) {
                       {(multiAccounts.failed_challenges || []).length > 0 ? (
                         <div className="space-y-2">
                           {multiAccounts.failed_challenges.map((ev, i) => (
-                            <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2" data-testid={`ma-failed-${i}`}>
+                            <div key={ev._id || i} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2" data-testid={`ma-failed-${i}`}>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="px-1.5 py-0.5 rounded text-[10px] uppercase bg-red-500/20 text-red-400">bot</span>
                                 <span className="text-white text-sm">{ev.username || ev.email || (ev.user_id || '').slice(0, 8)}</span>
@@ -1972,6 +2057,22 @@ export default function AdminPage({ user }) {
                                 {(ev.turnstile?.error_codes || []).map((code, k) => (
                                   <span key={k} className="px-1.5 py-0.5 bg-red-500/10 rounded text-red-400 font-mono">{code}</span>
                                 ))}
+                                {ev._id && (
+                                  <Button
+                                    data-testid={`ma-failed-delete-${i}`}
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={maCleanupBusy}
+                                    onClick={() => cleanupMultiAccounts(
+                                      { mode: 'by_ids', event_ids: [ev._id] },
+                                      null
+                                    )}
+                                    className="h-6 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                    title="Удалить"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           ))}

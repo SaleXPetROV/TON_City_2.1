@@ -121,6 +121,7 @@ async def record_event(
     if turnstile is not None and turnstile.get("success") is False:
         risk = "high"
 
+    now = datetime.now(timezone.utc)
     doc = {
         "event_type": event_type,
         "ip": ip,
@@ -136,7 +137,7 @@ async def record_event(
             "hostname": (turnstile or {}).get("hostname", "") if turnstile else "",
         } if turnstile is not None else None,
         "risk": risk,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
         "extra": extra or {},
     }
     try:
@@ -144,6 +145,81 @@ async def record_event(
     except Exception as e:
         logger.error("Failed to persist fingerprint event: %s", e)
     return doc
+
+
+async def ensure_ttl_index(db, ttl_days: int = 30) -> None:
+    """Ensure a TTL index on `created_at` so old anti-fraud events are
+    automatically deleted by MongoDB after `ttl_days`. Idempotent —
+    re-creates the index if ttl_days changes."""
+    try:
+        indexes = await db.fingerprints.index_information()
+        existing = indexes.get("ttl_created_at")
+        desired_seconds = ttl_days * 24 * 3600
+        if existing and existing.get("expireAfterSeconds") != desired_seconds:
+            try:
+                await db.fingerprints.drop_index("ttl_created_at")
+            except Exception:
+                pass
+            existing = None
+        if not existing:
+            await db.fingerprints.create_index(
+                "created_at",
+                expireAfterSeconds=desired_seconds,
+                name="ttl_created_at",
+            )
+            logger.info("Fingerprints TTL index set to %s days", ttl_days)
+    except Exception as e:
+        logger.warning("Failed to create fingerprints TTL index: %s", e)
+
+
+async def cleanup_events(
+    db,
+    *,
+    mode: str = "older_than",
+    older_than_days: Optional[int] = 30,
+    event_ids: Optional[list] = None,
+    failed_only: bool = False,
+) -> dict:
+    """Delete fingerprint events.
+
+    mode:
+      - "older_than": remove events where created_at < now - older_than_days
+      - "failed_only": remove only Turnstile-failed events
+      - "by_ids": remove specific events by their ObjectId
+      - "all": wipe everything (use with care)
+    """
+    query: Dict[str, Any] = {}
+    if mode == "older_than":
+        cutoff = datetime.now(timezone.utc) - _td_days(older_than_days or 30)
+        query = {"created_at": {"$lt": cutoff}}
+    elif mode == "failed_only":
+        query = {"turnstile.success": False}
+    elif mode == "by_ids":
+        from bson import ObjectId
+        ids = []
+        for raw in event_ids or []:
+            try:
+                ids.append(ObjectId(raw))
+            except Exception:
+                continue
+        if not ids:
+            return {"deleted": 0, "mode": mode}
+        query = {"_id": {"$in": ids}}
+    elif mode == "all":
+        query = {}
+    else:
+        return {"deleted": 0, "mode": mode, "error": "unknown mode"}
+
+    if failed_only and mode != "failed_only":
+        query["turnstile.success"] = False
+
+    result = await db.fingerprints.delete_many(query)
+    return {"deleted": int(result.deleted_count), "mode": mode}
+
+
+def _td_days(days: int):
+    from datetime import timedelta
+    return timedelta(days=days)
 
 
 async def build_admin_report(db, limit: int = 100) -> dict:
@@ -212,7 +288,7 @@ async def build_admin_report(db, limit: int = 100) -> dict:
         {"$limit": limit},
         {
             "$project": {
-                "_id": 0,
+                "_id": {"$toString": "$_id"},
                 "event_type": 1,
                 "ip": 1,
                 "visitor_id": 1,

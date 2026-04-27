@@ -33,29 +33,30 @@ class ContractDeployer:
         return settings
     
     async def save_deployer_wallet(self, mnemonic: str, network: str = "mainnet") -> Dict:
-        """Save deployer wallet mnemonic"""
+        """Save deployer wallet mnemonic (encrypted at rest via Fernet)"""
+        from mnemonic_crypto import encrypt_mnemonic
         mnemonics = mnemonic.strip().split()
         if len(mnemonics) != 24:
             raise ValueError("Mnemonic must be 24 words")
-        
+
         _, _, _, wallet = Wallets.from_mnemonics(
             mnemonics, WalletVersionEnum.v4r2, 0
         )
         # Non-bounceable format (UQ...)
         address = wallet.address.to_string(is_user_friendly=True, is_bounceable=False, is_url_safe=True)
-        
+
         await self.db.admin_settings.update_one(
             {"type": "contract_deployer"},
             {"$set": {
                 "type": "contract_deployer",
-                "mnemonic": mnemonic,
+                "mnemonic": encrypt_mnemonic(mnemonic),
                 "address": address,
                 "network": network,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }},
             upsert=True
         )
-        
+
         return {"address": address, "network": network}
     
     async def delete_deployer_wallet(self) -> Dict:
@@ -111,11 +112,15 @@ class ContractDeployer:
     
     async def send_ton(self, to_address: str, amount: float, comment: str = "") -> Dict:
         """Send TON from deployer wallet"""
+        from mnemonic_crypto import decrypt_mnemonic
         settings = await self.get_deployer_wallet()
         if not settings or not settings.get("mnemonic"):
             raise ValueError("Deployer wallet not configured")
-        
-        mnemonic = settings["mnemonic"].split()
+
+        mnemonic_plain = decrypt_mnemonic(settings["mnemonic"])
+        if not mnemonic_plain:
+            raise ValueError("Deployer wallet mnemonic decryption failed")
+        mnemonic = mnemonic_plain.split()
         network = settings.get("network", "mainnet")
         api_url = self.api_url if network == "mainnet" else self.testnet_api_url
         
@@ -299,17 +304,21 @@ class ContractDeployer:
         - percent: uint8
         """
         # Get deployer wallet (contract owner)
+        from mnemonic_crypto import decrypt_mnemonic
         deployer = await self.get_deployer_wallet()
         if not deployer or not deployer.get("mnemonic"):
             raise ValueError("Deployer wallet not configured")
-        
+
         # Get contract address
         contract = await self.db.admin_settings.find_one({"type": "distribution_contract"})
         if not contract or not contract.get("contract_address"):
             raise ValueError("Contract not deployed")
-        
+
         contract_address = contract["contract_address"]
-        mnemonic = deployer["mnemonic"].split()
+        mnemonic_plain = decrypt_mnemonic(deployer["mnemonic"])
+        if not mnemonic_plain:
+            raise ValueError("Deployer wallet mnemonic decryption failed")
+        mnemonic = mnemonic_plain.split()
         network = deployer.get("network", "mainnet")
         api_url = self.api_url if network == "mainnet" else self.testnet_api_url
         
