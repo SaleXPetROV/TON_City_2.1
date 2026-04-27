@@ -65,8 +65,9 @@ async def _call_ipqs(api_key: str, ip: str) -> Optional[dict]:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
-            if not data.get("success", True):
-                logger.warning("IPQS returned non-success: %s", data.get("message"))
+            success = bool(data.get("success", True))
+            if not success:
+                logger.warning("IPQS non-success: %s", data.get("message"))
             return {
                 "fraud_score": int(data.get("fraud_score", 0) or 0),
                 "is_vpn": bool(data.get("vpn", False)),
@@ -79,7 +80,8 @@ async def _call_ipqs(api_key: str, ip: str) -> Optional[dict]:
                 "city": data.get("city") or "",
                 "isp": data.get("ISP") or data.get("isp") or "",
                 "connection_type": data.get("connection_type") or "",
-                "raw_success": bool(data.get("success", True)),
+                "raw_success": success,
+                "raw_message": data.get("message") or "",
             }
     except httpx.TimeoutException:
         logger.warning("IPQS timeout for %s", ip)
@@ -268,6 +270,19 @@ async def build_admin_report(db, limit: int = 100) -> dict:
 
     total_events = await db.fingerprints.count_documents({})
 
+    # Check latest IPQS response to detect activation / credit issues
+    last_ipqs_doc = await db.fingerprints.find_one(
+        {"ipqs": {"$ne": None}},
+        sort=[("created_at", -1)],
+        projection={"ipqs.raw_success": 1, "ipqs.raw_message": 1, "created_at": 1},
+    )
+    ipqs_api_status = None
+    if last_ipqs_doc and last_ipqs_doc.get("ipqs"):
+        ipqs_api_status = {
+            "success": bool(last_ipqs_doc["ipqs"].get("raw_success", False)),
+            "message": last_ipqs_doc["ipqs"].get("raw_message", "") or "",
+        }
+
     def _jsonify(doc):
         """Make datetime JSON-serialisable."""
         if isinstance(doc, dict):
@@ -280,6 +295,7 @@ async def build_admin_report(db, limit: int = 100) -> dict:
 
     return {
         "ipqs_enabled": bool(os.environ.get("IPQS_API_KEY", "").strip()),
+        "ipqs_api_status": ipqs_api_status,
         "total_events": total_events,
         "visitor_groups": _jsonify(visitor_groups),
         "ip_groups": _jsonify(ip_groups),

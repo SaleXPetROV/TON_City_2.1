@@ -854,8 +854,15 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
                     className="border-white/10 hover:bg-white/5 py-6 text-xs uppercase tracking-widest disabled:opacity-50">
                     <Chrome className="w-4 h-4 mr-2" /> {t('google')}
                   </Button>
-                  <div 
-                    className={`relative bg-white/5 flex items-center justify-center rounded-xl border border-white/10 hover:border-cyber-cyan/50 transition-all overflow-hidden group ${(mode === 'register' && !agreementAccepted) ? 'opacity-50 pointer-events-none' : ''}`}
+                  <div
+                    data-testid="ton-connect-wrapper"
+                    className={`relative flex items-center justify-center rounded-xl overflow-hidden group
+                      bg-gradient-to-br from-[#0098ea] to-[#0079c0]
+                      border border-[#0098ea]/60 hover:border-[#30a9ef]
+                      shadow-[0_4px_18px_-4px_rgba(0,152,234,0.55)]
+                      hover:shadow-[0_6px_24px_-4px_rgba(0,152,234,0.85)]
+                      transition-all duration-200
+                      ${(mode === 'register' && !agreementAccepted) ? 'opacity-50 pointer-events-none' : ''}`}
                     onClick={(e) => {
                       if (mode === 'register' && !agreementAccepted) {
                         e.preventDefault();
@@ -864,9 +871,11 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
                       }
                     }}
                   >
-                     <div className="scale-75 brightness-90 group-hover:brightness-110 transition-all">
-                       <TonConnectButton />
-                     </div>
+                    {/* Subtle shine overlay */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                    <div className="relative scale-90 group-hover:scale-[0.95] transition-transform">
+                      <TonConnectButton />
+                    </div>
                   </div>
                 </div>
               </motion.div>

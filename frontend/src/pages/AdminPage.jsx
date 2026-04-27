@@ -1863,9 +1863,9 @@ export default function AdminPage({ user }) {
                     </p>
                   </div>
                   {multiAccounts && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className={`px-2 py-1 rounded ${multiAccounts.ipqs_enabled ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`} data-testid="ipqs-status">
-                        IPQS: {multiAccounts.ipqs_enabled ? 'enabled' : 'dry-run (no key)'}
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <span className={`px-2 py-1 rounded ${multiAccounts.ipqs_enabled ? (multiAccounts.ipqs_api_status?.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-amber-500/20 text-amber-400'}`} data-testid="ipqs-status">
+                        IPQS: {!multiAccounts.ipqs_enabled ? 'dry-run (no key)' : multiAccounts.ipqs_api_status?.success === false ? 'error' : 'enabled'}
                       </span>
                       <span className="px-2 py-1 rounded bg-cyber-cyan/20 text-cyber-cyan" data-testid="ma-total-events">
                         Events: {multiAccounts.total_events || 0}
@@ -1873,6 +1873,18 @@ export default function AdminPage({ user }) {
                     </div>
                   )}
                 </div>
+
+                {multiAccounts?.ipqs_enabled && multiAccounts?.ipqs_api_status && multiAccounts.ipqs_api_status.success === false && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs" data-testid="ipqs-error-banner">
+                    <div className="font-bold text-red-400 mb-1">⚠️ IPQualityScore API вернул ошибку</div>
+                    <div className="text-text-muted">
+                      Ответ: <span className="font-mono text-white">{multiAccounts.ipqs_api_status.message || '—'}</span>
+                    </div>
+                    <div className="text-text-muted mt-1">
+                      Обычно это значит что аккаунт IPQS требует подтверждения email или активации бесплатного тарифа. Проверьте: <a href="https://www.ipqualityscore.com/user/settings" target="_blank" rel="noopener noreferrer" className="text-cyber-cyan underline">Account Settings</a> → Verify Email, и убедитесь что в разделе <a href="https://www.ipqualityscore.com/user/plans" target="_blank" rel="noopener noreferrer" className="text-cyber-cyan underline">Plans</a> выбран тариф Free. Ключ считается валидным, но без активного тарифа IPQS возвращает "insufficient credits".
+                    </div>
+                  </div>
+                )}
 
                 {multiAccounts ? (
                   <div className="space-y-6">
