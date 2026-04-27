@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="description" content="TON City Builder" />
+        <title>TON City Builder</title>
+        
+        <!-- Telegram Mini App SDK -->
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        
+        <!-- Prevent wallet extension conflicts -->
+        <script>
+            // Freeze ethereum property to prevent extension conflicts
+            (function() {
+                try {
+                    if (typeof window.ethereum !== 'undefined') {
+                        Object.defineProperty(window, 'ethereum', {
+                            configurable: false,
+                            writable: false,
+                            value: window.ethereum
+                        });
+                    }
+                } catch(e) {
+                    console.warn('Ethereum property protection skipped:', e.message);
+                }
+                
+                // Initialize Telegram WebApp if available
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.ready();
+                    window.Telegram.WebApp.expand();
+                }
+            })();
+        </script>
+        
+        <!-- Standard Tailwind (Loaded unconditionally for stability) -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            window.tailwind = window.tailwind || {};
+            tailwind.config = {
+                corePlugins: { preflight: false },
+            };
+        </script>
+    </head>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+    </body>
+</html>
