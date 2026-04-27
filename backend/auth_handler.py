@@ -38,19 +38,23 @@ class EmailRegister(BaseModel):
     email: EmailStr
     password: str
     username: str
+    visitor_id: Optional[str] = None
 
 class EmailRegisterInitiate(BaseModel):
     email: EmailStr
     password: str
     username: str
+    visitor_id: Optional[str] = None
 
 class EmailVerifyCode(BaseModel):
     email: EmailStr
     code: str
+    visitor_id: Optional[str] = None
 
 class EmailLogin(BaseModel):
     email: str  # Changed from EmailStr to str to allow username
     password: str
+    visitor_id: Optional[str] = None
 
 class GoogleAuth(BaseModel):
     credential: str  # Google ID token
@@ -214,10 +218,11 @@ async def register_initiate(data: EmailRegisterInitiate):
 
 # 1.1 Подтверждение email и завершение регистрации
 @auth_router.post("/register/verify")
-async def register_verify(data: EmailVerifyCode):
+async def register_verify(data: EmailVerifyCode, request: Request):
     """Verify email code and complete registration"""
     from server import db
     from email_service import verify_email_code
+    from antifraud import record_event as antifraud_record_event
     import uuid
     
     # Проверяем код
@@ -266,7 +271,19 @@ async def register_verify(data: EmailVerifyCode):
     
     await db.users.insert_one(user)
     token = create_token({"sub": data.email})
-    
+
+    # Anti-multi-account: record registration fingerprint (best-effort)
+    try:
+        await antifraud_record_event(
+            db,
+            event_type="register",
+            request=request,
+            user=user,
+            visitor_id=getattr(data, "visitor_id", None),
+        )
+    except Exception as e:
+        logger.warning("antifraud.register_verify failed: %s", e)
+
     return {
         "token": token,
         "type": "bearer",
@@ -282,8 +299,9 @@ async def register_verify(data: EmailVerifyCode):
 
 # 1.2 Старая регистрация (для совместимости) - теперь редиректит на initiate
 @auth_router.post("/register")
-async def register(data: EmailRegister):
+async def register(data: EmailRegister, request: Request):
     from server import db
+    from antifraud import record_event as antifraud_record_event
     import uuid
 
     # S4: enforce password strength on direct register as well
@@ -332,7 +350,19 @@ async def register(data: EmailRegister):
     
     await db.users.insert_one(user)
     token = create_token({"sub": data.email})
-    
+
+    # Anti-multi-account: record registration fingerprint (best-effort)
+    try:
+        await antifraud_record_event(
+            db,
+            event_type="register",
+            request=request,
+            user=user,
+            visitor_id=getattr(data, "visitor_id", None),
+        )
+    except Exception as e:
+        logger.warning("antifraud.register failed: %s", e)
+
     return {
         "token": token,
         "type": "bearer",
@@ -457,6 +487,19 @@ async def login(data: EmailLogin, request: Request):
             }
         }
     )
+
+    # Anti-multi-account fingerprint on login (best-effort)
+    try:
+        from antifraud import record_event as antifraud_record_event
+        await antifraud_record_event(
+            db,
+            event_type="login",
+            request=request,
+            user=user,
+            visitor_id=getattr(data, "visitor_id", None),
+        )
+    except Exception as e:
+        logger.warning("antifraud.login failed: %s", e)
     
     # Возвращаем токен и информацию о пользователе
     return {

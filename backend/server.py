@@ -6233,46 +6233,17 @@ async def admin_unblock_user_withdrawal(user_id: str, admin: User = Depends(get_
 
 @admin_router.get("/multi-accounts")
 async def admin_detect_multi_accounts(admin: User = Depends(get_admin_user)):
-    """Detect users sharing IP or device name (potential multi-accounting)"""
-    # Aggregate by IP
-    ip_pipeline = [
-        {"$match": {"last_ip": {"$exists": True, "$ne": None, "$ne": ""}}},
-        {"$group": {
-            "_id": "$last_ip",
-            "count": {"$sum": 1},
-            "users": {"$push": {
-                "id": "$id", "username": "$username", "email": "$email",
-                "last_device": "$last_device", "last_login": "$last_login"
-            }}
-        }},
-        {"$match": {"count": {"$gt": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    
-    # Aggregate by device
-    device_pipeline = [
-        {"$match": {"last_device": {"$exists": True, "$ne": None, "$ne": ""}}},
-        {"$group": {
-            "_id": "$last_device",
-            "count": {"$sum": 1},
-            "users": {"$push": {
-                "id": "$id", "username": "$username", "email": "$email",
-                "last_ip": "$last_ip", "last_login": "$last_login"
-            }}
-        }},
-        {"$match": {"count": {"$gt": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    
-    ip_duplicates = await db.users.aggregate(ip_pipeline).to_list(50)
-    device_duplicates = await db.users.aggregate(device_pipeline).to_list(50)
-    
-    return {
-        "ip_duplicates": [{"ip": d["_id"], "count": d["count"], "users": d["users"]} for d in ip_duplicates],
-        "device_duplicates": [{"device": d["_id"], "count": d["count"], "users": d["users"]} for d in device_duplicates],
-        "total_ip_groups": len(ip_duplicates),
-        "total_device_groups": len(device_duplicates),
-    }
+    """Detect multi-accounting using FingerprintJS visitor_id + IPQualityScore.
+
+    New implementation (v2) — replaces the previous IP/device-name grouping.
+    Data source: `fingerprints` collection populated by antifraud.record_event
+    on register / login / withdraw. Groups:
+      • visitor_groups — same FingerprintJS visitor_id across different accounts
+      • ip_groups      — same IP across different accounts, with VPN/Tor flags
+      • high_risk_events — individual events flagged by IPQS
+    """
+    from antifraud import build_admin_report
+    return await build_admin_report(db, limit=100)
 
 
 @admin_router.get("/transactions")

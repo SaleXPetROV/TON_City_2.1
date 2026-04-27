@@ -523,7 +523,14 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
   
   const executeWithdrawal = async (withdrawalData, totpCodeValue = null) => {
     const token = localStorage.getItem('token') || localStorage.getItem('ton_city_token');
-    
+
+    // FingerprintJS OSS — visitor_id
+    let visitorId = '';
+    try {
+      const mod = await import('@/lib/fingerprint');
+      visitorId = await mod.getVisitorId();
+    } catch { /* noop */ }
+
     if (withdrawalData.type === 'instant') {
       const response = await axios.post(
         `${API}/withdraw/instant`,
@@ -531,6 +538,7 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
           amount: withdrawalData.amount,
           bank_id: withdrawalData.bankId,
           totp_code: totpCodeValue,
+          visitor_id: visitorId,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -549,6 +557,7 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
           amount: withdrawalData.amount,
           to_address: userWallet,
           totp_code: totpCodeValue,
+          visitor_id: visitorId,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );

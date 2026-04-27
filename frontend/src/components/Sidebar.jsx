@@ -111,6 +111,18 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
   // (тогда `shouldForceExpand` принудительно разворачивает панель).
   const isExpanded = shouldForceExpand || (!isTutorialActive && isHovered);
 
+  // Текст лейблов появляется ПОСЛЕ раскрытия сайдбара (с задержкой),
+  // а при закрытии скрывается ДО начала сворачивания панели.
+  // Это устраняет "вылет" текста за край свёрнутого сайдбара.
+  const [showLabels, setShowLabels] = useState(false);
+  useEffect(() => {
+    if (isExpanded) {
+      const t = setTimeout(() => setShowLabels(true), 180);
+      return () => clearTimeout(t);
+    }
+    setShowLabels(false);
+  }, [isExpanded]);
+
   // Если юзер не залогинен, не показываем меню вообще
   if (!user) return null;
 
@@ -156,7 +168,7 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
           })()}
           
           {/* Balance Section */}
-          <div className={`p-3 bg-gradient-to-r from-cyber-cyan/10 to-purple-500/10 rounded-xl border border-cyber-cyan/20 mb-2 ${!isExpanded ? 'hidden' : ''}`}>
+          <div className={`p-3 bg-gradient-to-r from-cyber-cyan/10 to-purple-500/10 rounded-xl border border-cyber-cyan/20 mb-2 ${!(isExpanded && showLabels) ? 'hidden' : ''}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-cyber-cyan" />
@@ -213,7 +225,7 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
           </div>
           
           {/* Compact balance for collapsed state */}
-          {!isExpanded && (
+          {!(isExpanded && showLabels) && (
             <div 
               className="p-2 bg-cyber-cyan/10 rounded-xl text-center cursor-pointer hover:bg-cyber-cyan/20 transition-colors mb-2"
               onClick={() => setShowDepositModal(true)}
@@ -270,7 +282,7 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
             <div className="min-w-[20px] flex items-center justify-center">
               <MessageCircle className="w-5 h-5" />
             </div>
-            {isExpanded && (
+            {isExpanded && showLabels && (
               <span className="font-bold text-xs uppercase tracking-widest whitespace-nowrap">
                 {t('sidebarSupport')}
               </span>
@@ -341,7 +353,7 @@ export default function Sidebar({ user, onBalanceUpdate, refreshBalance }) {
           }`}
       >
         <div className="min-w-[20px] flex items-center justify-center">{icon}</div>
-        {isExpanded && (
+        {isExpanded && showLabels && (
           <span className="font-bold text-xs uppercase tracking-widest whitespace-nowrap">
             {label}
           </span>

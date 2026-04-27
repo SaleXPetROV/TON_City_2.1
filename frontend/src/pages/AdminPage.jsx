@@ -192,7 +192,7 @@ export default function AdminPage({ user }) {
         axios.get(`${API}/admin/credit-settings`, { headers }).catch(() => ({ data: { government_interest_rate: 0.15 } })),
         axios.get(`${API}/admin/settings/tax`, { headers }).catch(() => ({ data: { land_market_tax: 10, resource_market_tax: 5, business_upgrade_tax: 3 } })),
         axios.get(`${API}/admin/wallets`, { headers }).catch(() => ({ data: { wallets: [] } })),
-        axios.get(`${API}/admin/multi-accounts`, { headers }).catch(() => ({ data: { ip_duplicates: [], device_duplicates: [] } })),
+        axios.get(`${API}/admin/multi-accounts`, { headers }).catch(() => ({ data: { visitor_groups: [], ip_groups: [], high_risk_events: [], totals: {}, total_events: 0, ipqs_enabled: false } })),
       ]);
       
       setStats(statsRes.data);
@@ -1852,29 +1852,95 @@ export default function AdminPage({ user }) {
           <TabsContent value="multiaccounts">
             <Card className="bg-void border-red-500/30">
               <CardContent className="p-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-400" />
-                  Обнаружение мульти-аккаунтов
-                </h3>
-                
+                <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                  <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-400" />
+                      Обнаружение мульти-аккаунтов
+                    </h3>
+                    <p className="text-xs text-text-muted mt-1">
+                      FingerprintJS (локальный отпечаток устройства) + IPQualityScore (репутация IP)
+                    </p>
+                  </div>
+                  {multiAccounts && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`px-2 py-1 rounded ${multiAccounts.ipqs_enabled ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`} data-testid="ipqs-status">
+                        IPQS: {multiAccounts.ipqs_enabled ? 'enabled' : 'dry-run (no key)'}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-cyber-cyan/20 text-cyber-cyan" data-testid="ma-total-events">
+                        Events: {multiAccounts.total_events || 0}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {multiAccounts ? (
                   <div className="space-y-6">
-                    {/* IP Duplicates */}
+                    {/* Visitor (device fingerprint) groups */}
                     <div>
-                      <h4 className="text-lg font-bold text-amber-400 mb-3">
-                        Совпадения по IP ({multiAccounts.total_ip_groups || 0} групп)
+                      <h4 className="text-lg font-bold text-amber-400 mb-3" data-testid="ma-visitor-title">
+                        Устройства (одинаковый visitor_id) — {multiAccounts.totals?.visitor_groups || 0} групп
                       </h4>
-                      {(multiAccounts.ip_duplicates || []).length > 0 ? (
+                      {(multiAccounts.visitor_groups || []).length > 0 ? (
                         <div className="space-y-3">
-                          {multiAccounts.ip_duplicates.map((group, i) => (
-                            <div key={i} className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                              <div className="text-red-400 font-mono text-sm mb-2">IP: {group.ip} ({group.count} пользователей)</div>
+                          {multiAccounts.visitor_groups.map((group, i) => (
+                            <div key={i} className="bg-red-500/10 border border-red-500/30 rounded-lg p-4" data-testid={`ma-visitor-group-${i}`}>
+                              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                <div className="text-red-400 font-mono text-xs break-all">visitor_id: {group.visitor_id}</div>
+                                <div className="flex items-center gap-2 text-[11px]">
+                                  <span className="text-text-muted">last IP: <span className="font-mono text-white">{group.last_ip || '—'}</span></span>
+                                  <span className="text-text-muted">{group.unique_users} акк.</span>
+                                  <span className="text-text-muted">{group.events_count} событий</span>
+                                </div>
+                              </div>
                               <div className="space-y-1">
                                 {group.users.map((u, j) => (
-                                  <div key={j} className="flex items-center gap-2 text-sm">
+                                  <div key={j} className="flex items-center gap-2 text-sm flex-wrap">
                                     <span className="text-white font-bold">{u.username || u.email}</span>
-                                    <span className="text-text-muted text-xs">ID: {u.id}</span>
-                                    <span className="text-text-muted text-xs">Устройство: {u.last_device || '—'}</span>
+                                    <span className="text-text-muted text-xs">{u.email}</span>
+                                    <span className="text-text-muted text-[10px]">id:{(u.user_id || '').slice(0, 8)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-green-400 text-sm">Совпадений по устройствам не обнаружено</div>
+                      )}
+                    </div>
+
+                    {/* IP groups */}
+                    <div>
+                      <h4 className="text-lg font-bold text-amber-400 mb-3" data-testid="ma-ip-title">
+                        Совпадения по IP — {multiAccounts.totals?.ip_groups || 0} групп
+                      </h4>
+                      {(multiAccounts.ip_groups || []).length > 0 ? (
+                        <div className="space-y-3">
+                          {multiAccounts.ip_groups.map((group, i) => (
+                            <div key={i} className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4" data-testid={`ma-ip-group-${i}`}>
+                              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                                <div className="text-amber-400 font-mono text-sm">IP: {group.ip}</div>
+                                <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                                  {group.any_tor && <span className="px-1.5 py-0.5 bg-red-500/30 text-red-300 rounded">TOR</span>}
+                                  {group.any_vpn && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded">VPN</span>}
+                                  {group.any_proxy && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">PROXY</span>}
+                                  {group.country_code && <span className="px-1.5 py-0.5 bg-white/5 text-text-muted rounded">{group.country_code}</span>}
+                                  {group.max_fraud_score > 0 && (
+                                    <span className={`px-1.5 py-0.5 rounded ${group.max_fraud_score >= 85 ? 'bg-red-500/30 text-red-300' : group.max_fraud_score >= 75 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/5 text-text-muted'}`}>
+                                      score {group.max_fraud_score}
+                                    </span>
+                                  )}
+                                  <span className="text-text-muted">{group.unique_users} акк.</span>
+                                </div>
+                              </div>
+                              {group.isp && <div className="text-[11px] text-text-muted mb-1">ISP: {group.isp}</div>}
+                              <div className="space-y-1">
+                                {group.users.map((u, j) => (
+                                  <div key={j} className="flex items-center gap-2 text-sm flex-wrap">
+                                    <span className="text-white font-bold">{u.username || u.email}</span>
+                                    <span className="text-text-muted text-xs">{u.email}</span>
+                                    <span className="text-text-muted text-[10px]">id:{(u.user_id || '').slice(0, 8)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1885,31 +1951,35 @@ export default function AdminPage({ user }) {
                         <div className="text-green-400 text-sm">Совпадений по IP не обнаружено</div>
                       )}
                     </div>
-                    
-                    {/* Device Duplicates */}
+
+                    {/* High-risk IPQS events */}
                     <div>
-                      <h4 className="text-lg font-bold text-amber-400 mb-3">
-                        Совпадения по устройству ({multiAccounts.total_device_groups || 0} групп)
+                      <h4 className="text-lg font-bold text-red-400 mb-3" data-testid="ma-highrisk-title">
+                        IPQS высокий риск — {multiAccounts.totals?.high_risk_events || 0} событий
                       </h4>
-                      {(multiAccounts.device_duplicates || []).length > 0 ? (
-                        <div className="space-y-3">
-                          {multiAccounts.device_duplicates.map((group, i) => (
-                            <div key={i} className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                              <div className="text-amber-400 font-mono text-sm mb-2">Устройство: {group.device} ({group.count} пользователей)</div>
-                              <div className="space-y-1">
-                                {group.users.map((u, j) => (
-                                  <div key={j} className="flex items-center gap-2 text-sm">
-                                    <span className="text-white font-bold">{u.username || u.email}</span>
-                                    <span className="text-text-muted text-xs">ID: {u.id}</span>
-                                    <span className="text-text-muted text-xs">IP: {u.last_ip || '—'}</span>
-                                  </div>
-                                ))}
+                      {(multiAccounts.high_risk_events || []).length > 0 ? (
+                        <div className="space-y-2">
+                          {multiAccounts.high_risk_events.map((ev, i) => (
+                            <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2" data-testid={`ma-highrisk-${i}`}>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase ${ev.risk === 'critical' ? 'bg-red-500/30 text-red-300' : ev.risk === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{ev.risk}</span>
+                                <span className="text-white text-sm">{ev.username || ev.email || (ev.user_id || '').slice(0, 8)}</span>
+                                <span className="text-text-muted text-[10px] uppercase">{ev.event_type}</span>
+                                <span className="text-text-muted text-xs font-mono">{ev.ip}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                                {ev.ipqs?.is_tor && <span className="text-red-300">TOR</span>}
+                                {ev.ipqs?.is_vpn && <span className="text-red-400">VPN</span>}
+                                {ev.ipqs?.is_proxy && <span className="text-amber-400">PROXY</span>}
+                                {ev.ipqs?.fraud_score !== undefined && <span className="text-text-muted">score {ev.ipqs.fraud_score}</span>}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-green-400 text-sm">Совпадений по устройствам не обнаружено</div>
+                        <div className="text-green-400 text-sm">
+                          {multiAccounts.ipqs_enabled ? 'Подозрительных событий не обнаружено' : 'IPQS отключён — добавьте IPQS_API_KEY для проверки VPN/Proxy/Tor'}
+                        </div>
                       )}
                     </div>
                   </div>

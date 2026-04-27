@@ -7,7 +7,7 @@ import pyotp
 import asyncio
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 
@@ -36,6 +36,7 @@ def create_withdrawal_router(db):
     @router.post("/withdraw/instant")
     async def instant_withdrawal(
         data: InstantWithdrawRequest,
+        request: Request,
         current_user: User = Depends(get_current_user)
     ):
         """Create instant withdrawal via bank"""
@@ -145,6 +146,7 @@ def create_withdrawal_router(db):
     @router.post("/withdraw")
     async def create_withdraw(
         data: WithdrawRequest,
+        request: Request,
         current_user: User = Depends(get_current_user)
     ):
         """Create standard withdrawal request with 2FA protection"""
@@ -221,7 +223,37 @@ def create_withdrawal_router(db):
         await db.transactions.insert_one({**withdrawal, "tx_type": "withdrawal"})
         
         logger.info(f"✅ Withdrawal created: {data.amount} TON for user {user_id}")
-        
+
+        # Anti-multi-account fingerprint on withdraw (best-effort)
+        try:
+            from antifraud import record_event as antifraud_record_event
+            await antifraud_record_event(
+                db,
+                event_type="withdraw",
+                request=request,
+                user=user,
+                visitor_id=getattr(data, "visitor_id", None),
+                extra={"amount": data.amount, "kind": "standard"},
+            )
+        except Exception as e:
+            logger.warning("antifraud.withdraw failed: %s", e)
+
+        return {
+            "status": "pending",
+            "withdrawal_id": withdrawal["id"],
+            "net_amount": net_amount,
+            "to_address": wallet,
+            "to_address_raw": user.get("raw_address", wallet),
+            "new_balance": user.get("balance_ton", 0) - data.amount
+        }
+    
+    return router
+  visitor_id=getattr(data, "visitor_id", None),
+                extra={"amount": data.amount, "kind": "standard"},
+            )
+        except Exception as e:
+            logger.warning("antifraud.withdraw failed: %s", e)
+
         return {
             "status": "pending",
             "withdrawal_id": withdrawal["id"],

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Coins, Building2, MapPin, TrendingUp, Medal, Crown, RefreshCw } from 'lucide-react';
+import { Trophy, Coins, Building2, MapPin, TrendingUp, Medal, Crown, RefreshCw, Store } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -82,6 +82,10 @@ export default function LeaderboardPage({ user }) {
                     <TrendingUp className="w-4 h-4 sm:mr-2" />
                     <span className="hidden sm:inline">{t('byIncome')}</span>
                   </TabsTrigger>
+                  <TabsTrigger value="trading" className="data-[state=active]:bg-amber-500 data-[state=active]:text-black text-xs sm:text-sm px-2 sm:px-4" data-testid="leaderboard-tab-trading">
+                    <Store className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">{t('byTrading')}</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </Tabs>
@@ -113,6 +117,7 @@ export default function LeaderboardPage({ user }) {
                             {sortBy === 'income' && `${(player?.total_income || 0).toFixed(1)} TON`}
                             {sortBy === 'businesses' && `${player?.businesses_count || 0}`}
                             {sortBy === 'plots' && `${player?.plots_count || 0}`}
+                            {sortBy === 'trading' && `${(player?.trading_volume || 0).toFixed(1)} TON`}
                           </div>
                         </CardContent>
                       </Card>
@@ -159,12 +164,14 @@ export default function LeaderboardPage({ user }) {
                             {sortBy === 'income' && `${(player.total_income || 0).toFixed(1)} TON`}
                             {sortBy === 'businesses' && `${player.businesses_count || 0}`}
                             {sortBy === 'plots' && `${player.plots_count || 0}`}
+                            {sortBy === 'trading' && `${(player.trading_volume || 0).toFixed(1)} TON`}
                           </div>
                           <div className="text-[10px] lg:text-xs text-text-muted hidden sm:block">
                             {sortBy === 'balance' && t('balanceSortLabel')}
                             {sortBy === 'income' && t('totalIncomeSortLabel')}
                             {sortBy === 'businesses' && t('bizSortLabel')}
                             {sortBy === 'plots' && t('plotsSortLabel')}
+                            {sortBy === 'trading' && `${player.trades_count || 0} ${t('tradesCountLabel') || 'trades'}`}
                           </div>
                         </div>
                       </motion.div>

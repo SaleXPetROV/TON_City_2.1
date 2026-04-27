@@ -95,12 +95,14 @@ class Transaction(BaseModel):
 class WithdrawRequest(BaseModel):
     amount: float
     totp_code: Optional[str] = None
+    visitor_id: Optional[str] = None
 
 
 class InstantWithdrawRequest(BaseModel):
     bank_id: str
     amount: float
     totp_code: Optional[str] = None
+    visitor_id: Optional[str] = None
 
 
 class PurchasePlotRequest(BaseModel):

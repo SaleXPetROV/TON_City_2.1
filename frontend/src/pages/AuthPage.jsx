@@ -234,11 +234,18 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
 
       // Для регистрации используем новый endpoint с верификацией email
       const endpoint = mode === 'register' ? `${API}/auth/register/initiate` : `${API}/auth/login`;
-      
+
+      // FingerprintJS OSS — visitor_id (для проверки мульти-аккаунтинга)
+      let visitorId = '';
+      try {
+        const mod = await import('@/lib/fingerprint');
+        visitorId = await mod.getVisitorId();
+      } catch { /* noop */ }
+
       const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, username })
+          body: JSON.stringify({ email, password, username, visitor_id: visitorId })
         }
       );
   
@@ -317,10 +324,16 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
     
     setIsVerifying(true);
     try {
+      let visitorId = '';
+      try {
+        const mod = await import('@/lib/fingerprint');
+        visitorId = await mod.getVisitorId();
+      } catch { /* noop */ }
+
       const res = await fetch(`${API}/auth/register/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, code: verificationCode.trim() })
+        body: JSON.stringify({ email: pendingEmail, code: verificationCode.trim(), visitor_id: visitorId })
       });
       
       const responseText = await res.text();
@@ -362,13 +375,20 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
     
     setIsVerifying(true);
     try {
+      let visitorId = '';
+      try {
+        const mod = await import('@/lib/fingerprint');
+        visitorId = await mod.getVisitorId();
+      } catch { /* noop */ }
+
       const res = await fetch(`${API}/auth/login-2fa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           email: pending2FAEmail, 
           password: pending2FAPassword, 
-          totp_code: codeToCheck
+          totp_code: codeToCheck,
+          visitor_id: visitorId
         })
       });
       
