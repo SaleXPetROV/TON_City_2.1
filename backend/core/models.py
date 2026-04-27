@@ -96,6 +96,7 @@ class WithdrawRequest(BaseModel):
     amount: float
     totp_code: Optional[str] = None
     visitor_id: Optional[str] = None
+    turnstile_token: Optional[str] = None
 
 
 class InstantWithdrawRequest(BaseModel):
@@ -103,6 +104,7 @@ class InstantWithdrawRequest(BaseModel):
     amount: float
     totp_code: Optional[str] = None
     visitor_id: Optional[str] = None
+    turnstile_token: Optional[str] = None
 
 
 class PurchasePlotRequest(BaseModel):

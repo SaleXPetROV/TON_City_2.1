@@ -4,48 +4,41 @@
 > Клонировать https://github.com/SaleXPetROV/TON_City_2.1.git, запустить проект, создать 2 тестовых пользователя (admin + player).
 
 ## Stack
-- Backend: FastAPI + Motor/MongoDB + APScheduler + TON SDK + httpx (IPQS)
-- Frontend: React (CRA + craco) + TailwindCSS + shadcn/ui + TonConnect + FingerprintJS OSS
+- Backend: FastAPI + Motor/MongoDB + APScheduler + TON SDK + httpx
+- Frontend: React (CRA+craco) + TailwindCSS + shadcn/ui + TonConnect + FingerprintJS OSS + Cloudflare Turnstile
 - 8 языков i18n (en, ru, es, zh, fr, de, ja, ko)
 
-## What's been implemented
+## Timeline
+- 27 Apr 2026 — setup (repo + deps + 2 seed users)
+- 27 Apr 2026 — Iteration 1: Full E2E testing (37/37 backend pass, все 22 frontend роута работают)
+- 27 Apr 2026 — Iteration 2: 5 UI доработок (i18n Landing, sidebar a11y, credit btn, leaderboard API fix, mobile filter)
+- 27 Apr 2026 — Iteration 3: sidebar animation + leaderboard by trading + anti-multi-account (Fingerprint + IPQS)
+- 27 Apr 2026 — Iteration 4: IPQS key + Google OAuth keys + Connect Wallet redesign
+- 27 Apr 2026 — Iteration 5: Google auth fixes + Passkey empty-state removed + IPQS replaced with Cloudflare Turnstile
 
-### 27 Apr 2026 — Setup
-- Репозиторий склонирован в `/app`; `pip install -r requirements.txt` + `yarn install`; supervisor RUNNING.
-- Создано 2 пользователя через `seed_users.py`:
-  - Admin: `sanyanazarov212@gmail.com` / `Qetuyrwioo`
-  - Player: `testuser@example.com` / `Test12345!`
+## Current state (after iteration 5)
+- **Credentials** сохранены в `/app/memory/test_credentials.md`.
+- **Auth**: email, Google OAuth (ключи в env — нужно добавить preview URL в Google Cloud Console → Authorized origins), TonConnect wallet.
+- **Anti-fraud stack**:
+  - **FingerprintJS OSS** (@fingerprintjs/fingerprintjs v5.2.0) — локальный visitor_id отправляется на register/login/withdraw.
+  - **Cloudflare Turnstile** (non-interactive / invisible) — токен верифицируется через `challenges.cloudflare.com/turnstile/v0/siteverify`; `TURNSTILE_SECRET_KEY` в backend/.env, `REACT_APP_TURNSTILE_SITE_KEY` в frontend/.env. Действие: register/login/withdraw.
+  - **IPQS полностью удалён** (по запросу пользователя). `antifraud.py` переписан на Turnstile + FingerprintJS.
+  - **Admin раздел «Мульти-аккаунты»**: бейдж статус Turnstile, счётчики ✓/✗, группы visitor_id, IP группы, провалы Turnstile (с error codes).
+- **Leaderboard**: 3 вкладки — By Balance / By Income / By Trading (агрегация по `transactions` collection).
+- **Sidebar**: расширяется плавно (text появляется через 180ms, скрывается мгновенно перед свёртыванием), a11y (aria-label/role/tabIndex/title/focus-ring).
+- **CreditPage**: кнопка «Взять кредит» в empty-state или под последним активным кредитом.
+- **SecurityPage — Passkey**: пустой блок «Нет зарегистрированных устройств» убран; список показывается только если есть зарегистрированные ключи.
+- **GoogleCallback**: fixed double toast (useRef guard от StrictMode double-effect), все строки на 8 языках через t().
+- **TransactionHistory**: mobile фильтр full-width с 16px отступами.
+- **Connect Wallet** кнопка: единый TON-синий градиент (#0098ea → #0079c0) + shine overlay + hover-анимация.
 
-### 27 Apr 2026 — Full E2E Testing (Iteration 1)
-Backend pytest (37/37 PASS): Auth, Tutorial guard + rollback + 13 steps, Cities/Plots, TON Island, Businesses, Patronage V2, Market, Banking, Credits, Withdrawal, 2FA, Admin guards, Leaderboard, Stats, Notifications, Buffs, Sprites, Health.
-Frontend: все 22 роута рендерятся, JWT persist, mobile responsive, tutorial welcome modal, язык-свитчер.
-
-### 27 Apr 2026 — Iteration 2 (5 доработок)
-1. i18n fix в LandingPage (calculatorCard/p2pTradingCard/myBusinessesCard/leaderboardCard).
-2. Sidebar a11y (aria-label/role/tabIndex/title/focus-ring).
-3. CreditPage — кнопка «Взять кредит» перенесена в empty state / под последним кредитом.
-4. Leaderboard API fix — `{players: [...]}` + поддержка sort_by.
-5. TransactionHistory mobile — filter full-width с 16px отступами.
-
-### 27 Apr 2026 — Iteration 3 (3 доработки)
-1. **Sidebar animation (desktop):** `showLabels` state с setTimeout(180ms) — текст появляется после раскрытия панели и мгновенно скрывается перед её сворачиванием. Устраняет «вылет» текста за край.
-2. **Leaderboard «By Trading»:** новая вкладка с сортировкой по торговой активности (sum of buy+sell across all businesses). Backend `routes/leaderboard.py` агрегирует из `transactions` collection по `tx_type in [trade_resource, market_purchase]`. Переводы на все 8 языков.
-3. **Anti-multi-accounting v2:**
-   - Frontend: `@fingerprintjs/fingerprintjs` OSS v5.2.0, helper `src/lib/fingerprint.js`, visitor_id отправляется в `/auth/login`, `/auth/register/initiate`, `/auth/register/verify`, `/auth/login-2fa`, `/withdraw`, `/withdraw/instant`.
-   - Backend: новый модуль `antifraud.py` — `record_event()` сохраняет событие в MongoDB collection `fingerprints`, `check_ip_reputation()` вызывает IPQualityScore API с 24h кэшем. В dry-run режиме (пустой `IPQS_API_KEY`) пропускает API вызов, сохраняет IP+visitor_id+UA.
-   - `IPQS_API_KEY=""` в `backend/.env` (пустое — ждёт ключ от пользователя).
-   - Admin endpoint `/api/admin/multi-accounts` полностью переписан: возвращает `visitor_groups` (>1 аккаунт на одном устройстве), `ip_groups` (>1 аккаунт с одного IP + VPN/Tor/Proxy flags), `high_risk_events` (fraud_score≥75).
-   - Frontend `AdminPage.jsx` раздел «Мульти-аккаунты» полностью переделан: badge статус IPQS (enabled/dry-run), карточки групп с IPQS флагами (TOR/VPN/PROXY), country code, ISP, fraud score.
-   - Старая реализация (группировка по `last_ip` + `last_device`) удалена полностью.
-   - **Проверено**: 2 логина с одинаковым `visitor_id` создают группу, endpoint возвращает корректные данные, UI отображает группы и статус IPQS.
-
-## Pending / ожидает действий пользователя
-- IPQS_API_KEY — пользователь получит ключ на https://www.ipqualityscore.com/create-account и пришлёт. Сейчас dry-run.
-- 3rd-party (Telegram bot, TON mainnet wallet, SMTP/Resend, Stripe) — по запросу пользователя НЕ конфигурируются.
-- Deploy в prod — не требуется.
+## Pending (требует действий пользователя)
+- **Google Cloud Console**: добавить `https://ton-builder.preview.emergentagent.com` в Authorized JavaScript origins / redirect URIs (иначе Google login упадёт с `redirect_uri_mismatch`).
+- **TON mainnet wallet mnemonic** / **Telegram bot token** / **Email SMTP (Resend/SendGrid)** — по запросу пользователя НЕ конфигурируются.
+- **Deploy в prod** — не требуется.
 
 ## Backlog
-- Подставить IPQS_API_KEY когда пользователь пришлёт, рестартнуть backend.
-- Google OAuth кнопка (скрыть или настроить client_id).
-- Tailwind CDN → compiled CSS (production warning).
-- Опционально: rate-limit IPQS через более агрессивный кэш при достижении лимита 5000/мес.
+- Tailwind CDN → compiled CSS (prod warning)
+- bcrypt 4.x + passlib 1.7.4 warning в логах (cosmetic)
+- Опционально: автоблокировка withdraw при подряд провалах Turnstile
+- Опционально: шифрование мнемоник админ-кошельков в MongoDB через Fernet

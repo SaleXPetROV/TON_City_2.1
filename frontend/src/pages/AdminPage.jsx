@@ -192,7 +192,7 @@ export default function AdminPage({ user }) {
         axios.get(`${API}/admin/credit-settings`, { headers }).catch(() => ({ data: { government_interest_rate: 0.15 } })),
         axios.get(`${API}/admin/settings/tax`, { headers }).catch(() => ({ data: { land_market_tax: 10, resource_market_tax: 5, business_upgrade_tax: 3 } })),
         axios.get(`${API}/admin/wallets`, { headers }).catch(() => ({ data: { wallets: [] } })),
-        axios.get(`${API}/admin/multi-accounts`, { headers }).catch(() => ({ data: { visitor_groups: [], ip_groups: [], high_risk_events: [], totals: {}, total_events: 0, ipqs_enabled: false } })),
+        axios.get(`${API}/admin/multi-accounts`, { headers }).catch(() => ({ data: { visitor_groups: [], ip_groups: [], failed_challenges: [], totals: {}, total_events: 0, turnstile_enabled: false, turnstile_counters: { passed: 0, failed: 0 } } })),
       ]);
       
       setStats(statsRes.data);
@@ -1859,32 +1859,30 @@ export default function AdminPage({ user }) {
                       Обнаружение мульти-аккаунтов
                     </h3>
                     <p className="text-xs text-text-muted mt-1">
-                      FingerprintJS (локальный отпечаток устройства) + IPQualityScore (репутация IP)
+                      FingerprintJS (локальный отпечаток устройства) + Cloudflare Turnstile (анти-бот)
                     </p>
                   </div>
                   {multiAccounts && (
                     <div className="flex items-center gap-2 text-xs flex-wrap">
-                      <span className={`px-2 py-1 rounded ${multiAccounts.ipqs_enabled ? (multiAccounts.ipqs_api_status?.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-amber-500/20 text-amber-400'}`} data-testid="ipqs-status">
-                        IPQS: {!multiAccounts.ipqs_enabled ? 'dry-run (no key)' : multiAccounts.ipqs_api_status?.success === false ? 'error' : 'enabled'}
+                      <span className={`px-2 py-1 rounded ${multiAccounts.turnstile_enabled ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`} data-testid="turnstile-status">
+                        Turnstile: {multiAccounts.turnstile_enabled ? 'enabled' : 'dry-run (no key)'}
                       </span>
                       <span className="px-2 py-1 rounded bg-cyber-cyan/20 text-cyber-cyan" data-testid="ma-total-events">
                         Events: {multiAccounts.total_events || 0}
                       </span>
+                      {multiAccounts.turnstile_counters && (
+                        <>
+                          <span className="px-2 py-1 rounded bg-green-500/10 text-green-400">
+                            ✓ {multiAccounts.turnstile_counters.passed || 0}
+                          </span>
+                          <span className="px-2 py-1 rounded bg-red-500/10 text-red-400">
+                            ✗ {multiAccounts.turnstile_counters.failed || 0}
+                          </span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-
-                {multiAccounts?.ipqs_enabled && multiAccounts?.ipqs_api_status && multiAccounts.ipqs_api_status.success === false && (
-                  <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs" data-testid="ipqs-error-banner">
-                    <div className="font-bold text-red-400 mb-1">⚠️ IPQualityScore API вернул ошибку</div>
-                    <div className="text-text-muted">
-                      Ответ: <span className="font-mono text-white">{multiAccounts.ipqs_api_status.message || '—'}</span>
-                    </div>
-                    <div className="text-text-muted mt-1">
-                      Обычно это значит что аккаунт IPQS требует подтверждения email или активации бесплатного тарифа. Проверьте: <a href="https://www.ipqualityscore.com/user/settings" target="_blank" rel="noopener noreferrer" className="text-cyber-cyan underline">Account Settings</a> → Verify Email, и убедитесь что в разделе <a href="https://www.ipqualityscore.com/user/plans" target="_blank" rel="noopener noreferrer" className="text-cyber-cyan underline">Plans</a> выбран тариф Free. Ключ считается валидным, но без активного тарифа IPQS возвращает "insufficient credits".
-                    </div>
-                  </div>
-                )}
 
                 {multiAccounts ? (
                   <div className="space-y-6">
@@ -1934,19 +1932,10 @@ export default function AdminPage({ user }) {
                               <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                                 <div className="text-amber-400 font-mono text-sm">IP: {group.ip}</div>
                                 <div className="flex items-center gap-2 text-[11px] flex-wrap">
-                                  {group.any_tor && <span className="px-1.5 py-0.5 bg-red-500/30 text-red-300 rounded">TOR</span>}
-                                  {group.any_vpn && <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded">VPN</span>}
-                                  {group.any_proxy && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">PROXY</span>}
-                                  {group.country_code && <span className="px-1.5 py-0.5 bg-white/5 text-text-muted rounded">{group.country_code}</span>}
-                                  {group.max_fraud_score > 0 && (
-                                    <span className={`px-1.5 py-0.5 rounded ${group.max_fraud_score >= 85 ? 'bg-red-500/30 text-red-300' : group.max_fraud_score >= 75 ? 'bg-amber-500/20 text-amber-400' : 'bg-white/5 text-text-muted'}`}>
-                                      score {group.max_fraud_score}
-                                    </span>
-                                  )}
                                   <span className="text-text-muted">{group.unique_users} акк.</span>
+                                  <span className="text-text-muted">{group.unique_visitors} устр.</span>
                                 </div>
                               </div>
-                              {group.isp && <div className="text-[11px] text-text-muted mb-1">ISP: {group.isp}</div>}
                               <div className="space-y-1">
                                 {group.users.map((u, j) => (
                                   <div key={j} className="flex items-center gap-2 text-sm flex-wrap">
@@ -1964,33 +1953,32 @@ export default function AdminPage({ user }) {
                       )}
                     </div>
 
-                    {/* High-risk IPQS events */}
+                    {/* Failed Turnstile challenges (bots) */}
                     <div>
-                      <h4 className="text-lg font-bold text-red-400 mb-3" data-testid="ma-highrisk-title">
-                        IPQS высокий риск — {multiAccounts.totals?.high_risk_events || 0} событий
+                      <h4 className="text-lg font-bold text-red-400 mb-3" data-testid="ma-failed-title">
+                        Провалы Turnstile (боты) — {multiAccounts.totals?.failed_challenges || 0} событий
                       </h4>
-                      {(multiAccounts.high_risk_events || []).length > 0 ? (
+                      {(multiAccounts.failed_challenges || []).length > 0 ? (
                         <div className="space-y-2">
-                          {multiAccounts.high_risk_events.map((ev, i) => (
-                            <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2" data-testid={`ma-highrisk-${i}`}>
+                          {multiAccounts.failed_challenges.map((ev, i) => (
+                            <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between flex-wrap gap-2" data-testid={`ma-failed-${i}`}>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase ${ev.risk === 'critical' ? 'bg-red-500/30 text-red-300' : ev.risk === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{ev.risk}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] uppercase bg-red-500/20 text-red-400">bot</span>
                                 <span className="text-white text-sm">{ev.username || ev.email || (ev.user_id || '').slice(0, 8)}</span>
                                 <span className="text-text-muted text-[10px] uppercase">{ev.event_type}</span>
                                 <span className="text-text-muted text-xs font-mono">{ev.ip}</span>
                               </div>
                               <div className="flex items-center gap-2 text-[11px] flex-wrap">
-                                {ev.ipqs?.is_tor && <span className="text-red-300">TOR</span>}
-                                {ev.ipqs?.is_vpn && <span className="text-red-400">VPN</span>}
-                                {ev.ipqs?.is_proxy && <span className="text-amber-400">PROXY</span>}
-                                {ev.ipqs?.fraud_score !== undefined && <span className="text-text-muted">score {ev.ipqs.fraud_score}</span>}
+                                {(ev.turnstile?.error_codes || []).map((code, k) => (
+                                  <span key={k} className="px-1.5 py-0.5 bg-red-500/10 rounded text-red-400 font-mono">{code}</span>
+                                ))}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div className="text-green-400 text-sm">
-                          {multiAccounts.ipqs_enabled ? 'Подозрительных событий не обнаружено' : 'IPQS отключён — добавьте IPQS_API_KEY для проверки VPN/Proxy/Tor'}
+                          {multiAccounts.turnstile_enabled ? 'Подозрительных событий не обнаружено' : 'Turnstile отключён — добавьте TURNSTILE_SECRET_KEY'}
                         </div>
                       )}
                     </div>

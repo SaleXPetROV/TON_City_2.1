@@ -524,11 +524,16 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
   const executeWithdrawal = async (withdrawalData, totpCodeValue = null) => {
     const token = localStorage.getItem('token') || localStorage.getItem('ton_city_token');
 
-    // FingerprintJS OSS — visitor_id
+    // FingerprintJS OSS + Cloudflare Turnstile (невидимые, анти-фрод)
     let visitorId = '';
+    let turnstileToken = '';
     try {
-      const mod = await import('@/lib/fingerprint');
-      visitorId = await mod.getVisitorId();
+      const [fp, ts] = await Promise.all([
+        import('@/lib/fingerprint').then(m => m.getVisitorId()).catch(() => ''),
+        import('@/lib/turnstile').then(m => m.getTurnstileToken('withdraw')).catch(() => ''),
+      ]);
+      visitorId = fp || '';
+      turnstileToken = ts || '';
     } catch { /* noop */ }
 
     if (withdrawalData.type === 'instant') {
@@ -539,6 +544,7 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
           bank_id: withdrawalData.bankId,
           totp_code: totpCodeValue,
           visitor_id: visitorId,
+          turnstile_token: turnstileToken,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -558,6 +564,7 @@ export function WithdrawModal({ isOpen, onClose, onSuccess, currentBalance = 0, 
           to_address: userWallet,
           totp_code: totpCodeValue,
           visitor_id: visitorId,
+          turnstile_token: turnstileToken,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );

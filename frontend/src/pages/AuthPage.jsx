@@ -236,16 +236,22 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
       const endpoint = mode === 'register' ? `${API}/auth/register/initiate` : `${API}/auth/login`;
 
       // FingerprintJS OSS — visitor_id (для проверки мульти-аккаунтинга)
+      // Turnstile — анти-бот проверка (невидимая)
       let visitorId = '';
+      let turnstileToken = '';
       try {
-        const mod = await import('@/lib/fingerprint');
-        visitorId = await mod.getVisitorId();
+        const [fp, ts] = await Promise.all([
+          import('@/lib/fingerprint').then(m => m.getVisitorId()).catch(() => ''),
+          import('@/lib/turnstile').then(m => m.getTurnstileToken(mode === 'register' ? 'register' : 'login')).catch(() => ''),
+        ]);
+        visitorId = fp || '';
+        turnstileToken = ts || '';
       } catch { /* noop */ }
 
       const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, username, visitor_id: visitorId })
+          body: JSON.stringify({ email, password, username, visitor_id: visitorId, turnstile_token: turnstileToken })
         }
       );
   
@@ -376,9 +382,14 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
     setIsVerifying(true);
     try {
       let visitorId = '';
+      let turnstileToken = '';
       try {
-        const mod = await import('@/lib/fingerprint');
-        visitorId = await mod.getVisitorId();
+        const [fp, ts] = await Promise.all([
+          import('@/lib/fingerprint').then(m => m.getVisitorId()).catch(() => ''),
+          import('@/lib/turnstile').then(m => m.getTurnstileToken('login')).catch(() => ''),
+        ]);
+        visitorId = fp || '';
+        turnstileToken = ts || '';
       } catch { /* noop */ }
 
       const res = await fetch(`${API}/auth/login-2fa`, {
@@ -388,7 +399,8 @@ export default function AuthPage({ setUser, onAuthSuccess }) {
           email: pending2FAEmail, 
           password: pending2FAPassword, 
           totp_code: codeToCheck,
-          visitor_id: visitorId
+          visitor_id: visitorId,
+          turnstile_token: turnstileToken
         })
       });
       

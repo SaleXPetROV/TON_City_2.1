@@ -226,13 +226,15 @@ def create_withdrawal_router(db):
 
         # Anti-multi-account fingerprint on withdraw (best-effort)
         try:
-            from antifraud import record_event as antifraud_record_event
+            from antifraud import record_event as antifraud_record_event, verify_turnstile, get_client_ip
+            ts_result = await verify_turnstile(getattr(data, "turnstile_token", None), get_client_ip(request))
             await antifraud_record_event(
                 db,
                 event_type="withdraw",
                 request=request,
                 user=user,
                 visitor_id=getattr(data, "visitor_id", None),
+                turnstile=ts_result,
                 extra={"amount": data.amount, "kind": "standard"},
             )
         except Exception as e:
