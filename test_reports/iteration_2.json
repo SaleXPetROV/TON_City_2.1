@@ -1,0 +1,56 @@
+{
+  "summary": "Full E2E review of TON City 2.1. Backend: 37/37 pytest cases passed (100%) covering Auth, Tutorial guard, Cities, TON Island, Businesses, Patrons, Market, Banking, Withdrawal, Credit, Security/2FA, Admin guard, Leaderboard, Notifications, Buffs, Stats, Sprites, Health. Frontend: landing page, login flow, JWT persistence in localStorage, tutorial welcome modal, navigation to /island, /leaderboard, /security, /credit all work; mobile responsive (390x844) shows hamburger menu. Issues found: (1) several SPA routes (/dashboard, /cities, /businesses, /market, /notifications) render empty body when navigated directly via URL, (2) UI mixes EN and Russian strings in dashboard widgets (i18n inconsistency), (3) total_volume_ton on landing differs between logged-in (150.0) and logged-out (1330.0) views — frontend computes circulation differently than /api/stats response.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "spec mismatch", "issue": "Spec referenced /api/auth/logout, /api/auth/change-password, /api/sprites/{type}, /api/credit/apply, /api/credit/{id}/repay — actual routes are /api/auth/update-password, /api/sprites/info, /api/credit/apply (OK), /api/credit/repay/{id}, /api/credit/my-loans. No dedicated /logout (client just discards JWT)."},
+      {"endpoint": "/api/stats", "issue": "Returns total_volume_ton=1330.0 but landing UI shows 150.0 when authenticated user logged in — frontend computation mismatch with API."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Router", "issue": "Direct navigation to /dashboard, /cities, /businesses, /market, /notifications returns empty body (no content rendered). Routes likely exist but components render nothing or rely on sidebar context.", "selector": "<App routes>", "priority": "MEDIUM"},
+      {"component": "Dashboard widgets (post-login landing)", "issue": "Mixed EN+RU strings: 'Калькулятор', 'P2P Торговля', 'Мои бизнесы', 'Рейтинг' appear while UI language is set to EN. i18n keys not translated.", "selector": "main dashboard cards", "priority": "MEDIUM"},
+      {"component": "TON Island", "issue": "Balance shown as '100,000 $CITY' instead of TON — currency unit inconsistency (game-internal vs TON).", "selector": "/island balance widget", "priority": "LOW"},
+      {"component": "Stats card", "issue": "TON in circulation differs between landing (logged-in: 150.0) and logged-out (1330.0). Same /api/stats but different display.", "selector": "stats grid", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Logout button", "issue": "No visible Logout button found in user dropdown selectors tested; could not complete logout flow via Playwright. Token cleanup unverified.", "affected_selectors": ["button:has-text('Logout')", "a:has-text('Logout')"]}
+    ],
+    "design_issues": [
+      {"screen": "Sidebar (desktop)", "issues": ["Sidebar uses icon-only nav with no text labels visible at 1920w; no aria-labels detected — accessibility issue", "Tailwind via CDN warning in console (production should use compiled CSS)"]},
+      {"screen": "Login modal", "issues": ["GOOGLE button visible but Google OAuth not configured (will fail at runtime if clicked)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_full_suite.py",
+    "/app/test_reports/pytest/full_suite.xml"
+  ],
+  "action_items": [
+    "Investigate and fix empty-body SPA routes (/dashboard, /cities, /businesses, /market, /notifications) — verify they render when accessed via direct URL.",
+    "Reconcile TON-in-circulation displayed value (150.0 logged-in vs 1330.0 logged-out vs API 1330.0).",
+    "Complete English translations for dashboard widget labels (currently Russian: Калькулятор/P2P Торговля/Мои бизнесы/Рейтинг).",
+    "Add visible Logout control with stable data-testid in user menu.",
+    "Add data-testid attributes to sidebar nav, login form, and dashboard widgets to enable reliable E2E automation.",
+    "Replace Tailwind CDN with compiled build in production.",
+    "Either hide or wire up Google OAuth button on login modal."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/server.py is ~9500 lines — must be split into modules (already partial with /routes/* but most endpoints still inline). Maintainability risk.",
+    "Spec listed endpoints not present (e.g. /api/auth/logout, /api/auth/change-password, /api/sprites/{type}) — keep frontend/backend route contract documented to avoid confusion.",
+    "Frontend has no /dashboard route component but sidebar/links reference it — silent navigation no-op.",
+    "Tailwind via CDN in production app (console warning) — performance/SEO impact.",
+    "Mixed locale strings in dashboard hint at hard-coded RU strings in components instead of t('key') — review TutorialContext/Sidebar/Dashboard widgets.",
+    "/api/stats endpoint is unauthenticated and exposes treasury — confirm intentional public exposure."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_full_suite.py"
+  ],
+  "success_rate": {"backend": "100% (37/37)", "frontend": "70% (login + 4/9 routes + mobile + JWT persist OK; 5 routes empty body, logout flow not verifiable, i18n incomplete)"},
+  "test_credentials": "Admin: sanyanazarov212@gmail.com / Qetuyrwioo · Player: testuser@example.com / Test12345! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used existing seeded users.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend covered with /app/backend/tests/test_full_suite.py (pytest, 37 cases). For deeper UI testing, the following sidebar destinations need closer investigation: /dashboard, /cities, /businesses, /market, /notifications all returned empty body when navigated directly. The sidebar is icon-only — selectors like 'a:has-text(\"Cities\")' do not work; use icon order or add data-testid. Tutorial welcome modal auto-opens for testuser if tutorial not completed — call POST /api/tutorial/reset to clear before tests requiring fresh state. /api/tutorial/start uses 200 (not 201) on first call. Admin endpoints all under prefix /api/admin/* and properly enforce 403 for non-admin. Mock-free run; TON/Telegram/Stripe were not exercised (no instant withdraw 2FA flow tested end-to-end since user has no 2FA enabled and TON keys not configured — would need separate setup).",
+  "rca_of_issues": "Empty-body routes likely caused by: (a) routes missing in App.js Router; or (b) components fetching data with no fallback skeleton + auth check failing silently. Fix path: open /app/frontend/src/App.js and verify <Route path='...'> declarations match sidebar links; add loading/error states. The 150 vs 1330 TON circulation discrepancy may be due to FE recomputing circulation from user's own stats endpoint vs global /api/stats — verify the data source in landing component."
+}
